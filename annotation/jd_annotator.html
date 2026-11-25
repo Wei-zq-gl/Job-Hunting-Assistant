@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOSS Agent · JD 标注台（阶段 0）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe; --accent-2:#7ee787;
+    --warn:#f2c94c; --danger:#ff7b72; --purple:#b392f0;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6;font-size:14px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+  header.top{
+    background:linear-gradient(135deg,rgba(110,168,254,.16),rgba(179,146,240,.12));
+    border:1px solid var(--border);border-radius:var(--radius);padding:22px 26px;margin-bottom:20px;
+  }
+  header.top h1{margin:0 0 6px;font-size:22px}
+  header.top p{margin:0;color:var(--muted);font-size:13px}
+
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .stat .v{font-size:22px;font-weight:700;color:var(--accent)}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .stat.green .v{color:var(--accent-2)}
+  .stat.warn .v{color:var(--warn)}
+  .stat.danger .v{color:var(--danger)}
+  .stat.purple .v{color:var(--purple)}
+
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  button{
+    background:var(--panel-2);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:rgba(110,168,254,.12);border-color:rgba(110,168,254,.5);color:var(--accent)}
+  button.ghost{background:transparent}
+  button.danger:hover{border-color:var(--danger);color:var(--danger)}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+  .panel h3{margin:0 0 10px;font-size:14px;color:var(--accent)}
+  textarea,input[type=text]{
+    width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);padding:10px 12px;font-family:inherit;font-size:13px;resize:vertical;
+  }
+  textarea{min-height:110px;font-family:Consolas,Monaco,monospace}
+  .hint{color:var(--muted);font-size:12px;margin:6px 0 0}
+  .hidden{display:none}
+
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:14px;
+  }
+  .card.sent{border-left:3px solid var(--accent-2)}
+  .card.rejected{border-left:3px solid var(--danger)}
+  .card.pending{border-left:3px solid var(--warn)}
+  .card .head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+  .card .title{font-size:16px;font-weight:700}
+  .card .title a{color:var(--text)}
+  .card .meta{color:var(--muted);font-size:12.5px;margin-top:4px;display:flex;flex-wrap:wrap;gap:10px}
+  .card .salary{color:var(--warn);font-weight:600}
+  .card .jd{margin-top:12px;color:#c9d1d9;font-size:13px;white-space:pre-wrap;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;
+    max-height:180px;overflow:auto}
+  .card .jd.clamp{max-height:64px;overflow:hidden;cursor:pointer}
+  .toggle-jd{font-size:12px;color:var(--accent);cursor:pointer;margin-top:6px;display:inline-block}
+
+  .rule{margin-top:10px;font-size:12.5px;padding:8px 12px;border-radius:8px;border:1px solid var(--border)}
+  .rule.pass{background:rgba(126,231,135,.07);border-color:rgba(126,231,135,.35);color:var(--accent-2)}
+  .rule.fail{background:rgba(255,123,114,.07);border-color:rgba(255,123,114,.35);color:#ffb4ae}
+
+  .annot{margin-top:12px;border-top:1px dashed var(--border);padding-top:12px}
+  .verdict{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .vbtn{border:1px solid var(--border);background:var(--panel-2);border-radius:8px;
+    padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .vbtn.on[data-v=send]{background:rgba(126,231,135,.15);border-color:var(--accent-2);color:var(--accent-2)}
+  .vbtn.on[data-v=reject]{background:rgba(255,123,114,.15);border-color:var(--danger);color:#ffb4ae}
+  .vbtn.on[data-v=pending]{background:rgba(242,201,76,.15);border-color:var(--warn);color:var(--warn)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .chip{border:1px solid var(--border);background:transparent;color:var(--muted);
+    border-radius:999px;padding:3px 12px;font-size:12px;cursor:pointer}
+  .chip.on{background:rgba(110,168,254,.12);border-color:var(--accent);color:var(--accent)}
+  .chip.on.good{background:rgba(126,231,135,.12);border-color:var(--accent-2);color:var(--accent-2)}
+  .chip.on.bad{background:rgba(255,123,114,.12);border-color:var(--danger);color:#ffb4ae}
+  .lab{font-size:12px;color:var(--muted);margin:8px 0 4px}
+  .note{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit;min-height:48px;resize:vertical}
+
+  .empty{text-align:center;color:var(--muted);padding:40px 0}
+  footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:12px;text-align:center}
+  @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>BOSS Agent · JD 标注台</h1>
+    <p>阶段 0：收集并标注 JD 样本，产出评分权重与排除词的依据。所有数据仅存本地浏览器（localStorage），导出后可交给后端做规则调优。</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="s-total">0</div><div class="l">样本总数</div></div>
+    <div class="stat green"><div class="v" id="s-send">0</div><div class="l">判定：发送</div></div>
+    <div class="stat danger"><div class="v" id="s-reject">0</div><div class="l">判定：淘汰</div></div>
+    <div class="stat warn"><div class="v" id="s-pending">0</div><div class="l">待定 / 未标注</div></div>
+    <div class="stat purple"><div class="v" id="s-agree">–</div><div class="l">规则预判一致率</div></div>
+  </div>
+
+  <div class="bar">
+    <button class="primary" id="btn-toggle-import">＋ 导入 JD 样本</button>
+    <button id="btn-sample">载入示例数据</button>
+    <button id="btn-export-json">导出 JSON</button>
+    <button id="btn-export-csv">导出 CSV</button>
+    <button class="danger ghost" id="btn-clear">清空全部</button>
+  </div>
+
+  <div class="panel hidden" id="import-panel">
+    <h3>导入样本</h3>
+    <div class="bar">
+      <button id="btn-paste-tab" class="primary">粘贴 JSON</button>
+      <button id="btn-file-tab">选择文件</button>
+      <button id="btn-manual-tab">手动新增</button>
+    </div>
+
+    <div id="pane-paste">
+      <textarea id="paste-area" placeholder='粘贴 JSON（数组或 {"jobs":[...]}），字段：title, company, salary, city, area, experience, education, jd, url'>
+[
+  {
+    "title": "AI Agent 开发工程师",
+    "company": "某某科技",
+    "salary": "15-25K·13薪",
+    "city": "上海",
+    "area": "浦东新区",
+    "experience": "1-3年",
+    "education": "本科",
+    "jd": "岗位职责：负责企业知识库机器人开发……",
+    "url": "https://www.zhipin.com/job_detail/xxxx.html"
+  }
+]</textarea>
+      <div class="bar" style="margin-top:10px">
+        <button class="primary" id="btn-do-paste">解析并导入</button>
+      </div>
+      <p class="hint">支持原始数组、<code>{"jobs":[...]}</code>，或 BOSS 采集结果对象。id 缺省时自动生成。</p>
+    </div>
+
+    <div id="pane-file" class="hidden">
+      <input type="file" id="file-input" accept=".json,.txt,.csv">
+      <p class="hint">JSON 格式同上；CSV 需含表头 title,company,salary,city,experience,education,jd,url。</p>
+    </div>
+
+    <div id="pane-manual" class="hidden">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input type="text" id="m-title" placeholder="岗位名称 *">
+        <input type="text" id="m-company" placeholder="公司名称 *">
+        <input type="text" id="m-salary" placeholder="薪资，如 15-25K·13薪 *">
+        <input type="text" id="m-city" placeholder="城市，如 上海 *">
+        <input type="text" id="m-area" placeholder="区域，如 浦东新区">
+        <input type="text" id="m-experience" placeholder="经验，如 1-3年">
+        <input type="text" id="m-education" placeholder="学历，如 本科">
+        <input type="text" id="m-url" placeholder="岗位链接">
+      </div>
+      <div class="lab">JD 正文</div>
+      <textarea id="m-jd" placeholder="粘贴 JD 全文"></textarea>
+      <div class="bar" style="margin-top:10px"><button class="primary" id="btn-do-manual">添加</button></div>
+    </div>
+  </div>
+
+  <div id="list"></div>
+  <div class="empty" id="empty">还没有样本。点击「导入 JD 样本」或「载入示例数据」开始。</div>
+
+  <footer>BOSS Agent · 阶段 0 标注台 · 本地存储 · 仅 BOSS 直聘</footer>
+</div>
+
+<script>
+/* ================= 配置：与 PRD 一致的硬性参数 ================= */
+const CONFIG = {
+  cities: ['上海','武汉','南京','杭州','苏州','郑州'],
+  salaryMin: 12, salaryMax: 20,          // 单位 K（1.2w–2w）
+  noWeekendKeywords: ['大小周','单休','轮休','排班','周末值班','做六休一','一周六天','6天工作制','弹性单休','周末轮班'],
+  directionKeywords: ['AI','Agent','智能体','大模型','LLM','RAG','LangChain','产品经理','Prompt','NLP','算法'],
+  skillKeywords: ['Python','RAG','LangChain','LlamaIndex','Qwen','MCP','Function Call','Tools','Prompt','SQL','Excel','需求分析','PRD'],
+  rejectReasons: ['城市不符','薪资不符','无双休','方向不符','外包/驻场','频繁出差','其他'],
+  skillTags: ['Python','RAG','LangChain','LlamaIndex','Qwen-Agent','MCP/Tools','Prompt','LLM','产品/PRD','需求分析','SQL','Excel'],
+};
+const LS_KEY = 'boss_agent_jd_annotations_v1';
+
+/* ================= 状态 ================= */
+let jobs = [];
+
+/* ================= 工具函数 ================= */
+function uid(){ return 'jd_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+
+function parseSalary(text){
+  if(!text) return null;
+  const t = String(text).replace(/\s/g,'');
+  let m = t.match(/(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)[Kk千]/);
+  if(m) return [parseFloat(m[1]), parseFloat(m[2])];
+  m = t.match(/(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)[Ww万]/);
+  if(m) return [parseFloat(m[1])*10, parseFloat(m[2])*10];
+  m = t.match(/(\d+(?:\.\d+)?)[Kk千]以上/);
+  if(m) return [parseFloat(m[1]), Infinity];
+  m = t.match(/(\d+(?:\.\d+)?)[Kk千]以下/);
+  if(m) return [0, parseFloat(m[1])];
+  return null;
+}
+
+/* 本地硬过滤预判 -> {pass:boolean, reason:string, detail:string} */
+function runRules(job){
+  const hits = [];
+  const cityOk = CONFIG.cities.some(c => (job.city||'').includes(c));
+  if(!cityOk) hits.push('城市不符('+(job.city||'空')+')');
+
+  const range = parseSalary(job.salary);
+  if(range){
+    const overlap = range[0] <= CONFIG.salaryMax && range[1] >= CONFIG.salaryMin;
+    if(!overlap) hits.push('薪资不符('+job.salary+')');
+  } else {
+    hits.push('薪资无法解析');
+  }
+
+  const text = (job.title||'') + ' ' + (job.jd||'');
+  const bad = CONFIG.noWeekendKeywords.filter(k => text.includes(k));
+  if(bad.length) hits.push('无双休关键词('+bad.join('/')+')');
+
+  const dirOk = CONFIG.directionKeywords.some(k => (job.title||'').toUpperCase().includes(k.toUpperCase()));
+  if(!dirOk) hits.push('方向不符');
+
+  return hits.length
+    ? { pass:false, reason:hits.join(' · '), detail:hits }
+    : { pass:true, reason:'通过硬过滤 → 进入软评分', detail:[] };
+}
+
+function matchedSkills(job){
+  const text = ((job.title||'')+' '+(job.jd||'')).toUpperCase();
+  return CONFIG.skillKeywords.filter(k => text.includes(k.toUpperCase()));
+}
+
+/* ================= 存储 ================= */
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(jobs)); }catch(e){} }
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) jobs = JSON.parse(raw) || [];
+  }catch(e){ jobs = []; }
+}
+
+/* ================= 渲染 ================= */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(){
+  const list = document.getElementById('list');
+  document.getElementById('empty').classList.toggle('hidden', jobs.length>0);
+
+  list.innerHTML = jobs.map(job => {
+    const rule = runRules(job);
+    const a = job.annotation || (job.annotation = {verdict:null, reasons:[], skills:[], note:''});
+    const cls = a.verdict === 'send' ? 'sent' : a.verdict === 'reject' ? 'rejected' : 'pending';
+    const skills = job.skillHints || matchedSkills(job);
+
+    const reasonChips = CONFIG.rejectReasons.map(r =>
+      `<span class="chip ${a.reasons.includes(r)?'on bad':''}" data-act="reason" data-id="${job.id}" data-val="${esc(r)}">${esc(r)}</span>`).join('');
+    const skillChips = CONFIG.skillTags.map(s =>
+      `<span class="chip ${a.skills.includes(s)?'on good':''}" data-act="skill" data-id="${job.id}" data-val="${esc(s)}">${esc(s)}</span>`).join('');
+
+    return `
+    <div class="card ${cls}" data-id="${job.id}">
+      <div class="head">
+        <div>
+          <div class="title">${job.url?`<a href="${esc(job.url)}" target="_blank">${esc(job.title)}</a>`:esc(job.title)}</div>
+          <div class="meta">
+            <span>${esc(job.company)}</span>
+            <span class="salary">${esc(job.salary)}</span>
+            <span>${esc(job.city)}${job.area?'·'+esc(job.area):''}</span>
+            <span>${esc(job.experience||'')}</span>
+            <span>${esc(job.education||'')}</span>
+          </div>
+        </div>
+        <button class="ghost danger" data-act="del" data-id="${job.id}" title="删除">✕</button>
+      </div>
+
+      ${job.jd ? `<div class="jd clamp" data-act="jd" data-id="${job.id}">${esc(job.jd)}</div>
+        <span class="toggle-jd" data-act="jd-toggle" data-id="${job.id}">展开 JD ▾</span>` : ''}
+
+      <div class="rule ${rule.pass?'pass':'fail'}">
+        ${rule.pass?'✓ 规则预判：':'✕ 规则预判：'}${esc(rule.reason)}
+        ${skills.length?'　｜　技能命中：'+esc(skills.join('、')):''}
+      </div>
+
+      <div class="annot">
+        <div class="verdict">
+          <span class="vbtn ${a.verdict==='send'?'on':''}" data-v="send" data-act="verdict" data-id="${job.id}">✅ 发送</span>
+          <span class="vbtn ${a.verdict==='reject'?'on':''}" data-v="reject" data-act="verdict" data-id="${job.id}">❌ 淘汰</span>
+          <span class="vbtn ${a.verdict==='pending'?'on':''}" data-v="pending" data-act="verdict" data-id="${job.id}">🤔 待定</span>
+        </div>
+        <div class="lab">淘汰原因（可多选）</div>
+        <div class="chips">${reasonChips}</div>
+        <div class="lab">匹配技能标签（可多选）</div>
+        <div class="chips">${skillChips}</div>
+        <div class="lab">备注</div>
+        <textarea class="note" data-act="note" data-id="${job.id}" placeholder="为什么这样判定？补充说明……">${esc(a.note)}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+
+  updateStats();
+}
+
+function updateStats(){
+  const total = jobs.length;
+  let send=0, reject=0, pending=0, annotated=0, agree=0;
+  jobs.forEach(j=>{
+    const a = j.annotation||{};
+    if(a.verdict==='send') send++;
+    else if(a.verdict==='reject') reject++;
+    else pending++;
+    if(a.verdict){
+      annotated++;
+      const rulePass = runRules(j).pass;
+      const userSend = a.verdict==='send';
+      if(rulePass === userSend || a.verdict==='pending') agree++;
+    }
+  });
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-send').textContent = send;
+  document.getElementById('s-reject').textContent = reject;
+  document.getElementById('s-pending').textContent = pending;
+  document.getElementById('s-agree').textContent = annotated ? Math.round(agree/annotated*100)+'%' : '–';
+}
+
+/* ================= 事件代理 ================= */
+document.getElementById('list').addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]');
+  if(!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+  const job = jobs.find(j=>j.id===id);
+  if(!job) return;
+  const a = job.annotation || (job.annotation={verdict:null,reasons:[],skills:[],note:''});
+
+  if(act==='verdict'){
+    a.verdict = (a.verdict===el.dataset.v) ? null : el.dataset.v;
+    if(a.verdict==='send') a.reasons = [];
+    save(); render();
+  }
+  else if(act==='reason'){
+    toggle(a.reasons, el.dataset.val); save(); render();
+  }
+  else if(act==='skill'){
+    toggle(a.skills, el.dataset.val); save(); render();
+  }
+  else if(act==='jd-toggle'){
+    const jd = document.querySelector(`.jd[data-id="${id}"]`);
+    const open = jd.classList.toggle('clamp');
+    el.textContent = open ? '展开 JD ▾' : '收起 JD ▴';
+  }
+  else if(act==='del'){
+    if(confirm('删除该样本？')){ jobs = jobs.filter(j=>j.id!==id); save(); render(); }
+  }
+});
+document.getElementById('list').addEventListener('input', e=>{
+  if(e.target.dataset.act==='note'){
+    const job = jobs.find(j=>j.id===e.target.dataset.id);
+    if(job){ (job.annotation=job.annotation||{verdict:null,reasons:[],skills:[],note:''}).note = e.target.value; save(); }
+  }
+});
+function toggle(arr, v){ const i=arr.indexOf(v); i>=0?arr.splice(i,1):arr.push(v); }
+
+/* ================= 导入 ================= */
+document.getElementById('btn-toggle-import').onclick = ()=>
+  document.getElementById('import-panel').classList.toggle('hidden');
+
+function switchTab(which){
+  ['paste','file','manual'].forEach(t=>{
+    document.getElementById('pane-'+t).classList.toggle('hidden', t!==which);
+    document.getElementById('btn-'+t+'-tab').classList.toggle('primary', t===which);
+  });
+}
+document.getElementById('btn-paste-tab').onclick = ()=>switchTab('paste');
+document.getElementById('btn-file-tab').onclick = ()=>switchTab('file');
+document.getElementById('btn-manual-tab').onclick = ()=>switchTab('manual');
+
+function normalize(raw){
+  const arr = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.jobs) ? raw.jobs : null);
+  if(!arr) throw new Error('无法识别结构，请提供数组或 {"jobs":[...]}');
+  return arr.map(o=>({
+    id: o.id || o.job_id || uid(),
+    title: o.title || o.job_name || o.jobName || '',
+    company: o.company || o.company_name || o.brandName || '',
+    salary: o.salary || o.salaryDesc || '',
+    city: o.city || o.cityName || '',
+    area: o.area || o.areaDistrict || '',
+    experience: o.experience || o.jobExperience || '',
+    education: o.education || o.jobDegree || '',
+    jd: o.jd || o.description || o.postDescription || '',
+    url: o.url || o.jobUrl || '',
+    annotation: o.annotation || {verdict:null, reasons:[], skills:[], note:''},
+  }));
+}
+
+function addJobs(list){
+  const exist = new Set(jobs.map(j=>j.id));
+  let added=0;
+  list.forEach(j=>{ if(!exist.has(j.id)){ jobs.push(j); exist.add(j.id); added++; } });
+  save(); render();
+  alert(`成功导入 ${added} 条（重复跳过 ${list.length-added} 条）`);
+}
+
+document.getElementById('btn-do-paste').onclick = ()=>{
+  try{ addJobs(normalize(JSON.parse(document.getElementById('paste-area').value))); }
+  catch(err){ alert('解析失败：'+err.message); }
+};
+
+document.getElementById('file-input').onchange = e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const text = reader.result;
+    try{
+      if(f.name.toLowerCase().endsWith('.csv')) addJobs(normalize(parseCSV(text)));
+      else addJobs(normalize(JSON.parse(text)));
+    }catch(err){ alert('读取失败：'+err.message); }
+  };
+  reader.readAsText(f, 'utf-8');
+};
+
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const head = lines[0].split(',').map(s=>s.trim());
+  return lines.slice(1).map(line=>{
+    const cells = splitCSVLine(line);
+    const o = {};
+    head.forEach((h,i)=> o[h]=cells[i]||'');
+    return o;
+  });
+}
+function splitCSVLine(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===','){ out.push(cur); cur=''; } else cur+=c; }
+  }
+  out.push(cur); return out;
+}
+
+document.getElementById('btn-do-manual').onclick = ()=>{
+  const g = id => document.getElementById(id).value.trim();
+  if(!g('m-title') || !g('m-company') || !g('m-salary') || !g('m-city')){ alert('岗位名称/公司/薪资/城市为必填'); return; }
+  jobs.push({
+    id: uid(), title:g('m-title'), company:g('m-company'), salary:g('m-salary'),
+    city:g('m-city'), area:g('m-area'), experience:g('m-experience'),
+    education:g('m-education'), jd:g('m-jd'), url:g('m-url'),
+    annotation:{verdict:null,reasons:[],skills:[],note:''}
+  });
+  ['m-title','m-company','m-salary','m-city','m-area','m-experience','m-education','m-url','m-jd'].forEach(i=>document.getElementById(i).value='');
+  save(); render();
+};
+
+/* ================= 导出 ================= */
+function download(name, content, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+document.getElementById('btn-export-json').onclick = ()=>{
+  download('boss_agent_annotations.json', JSON.stringify({exportedAt:new Date().toISOString(), count:jobs.length, jobs}, null, 2), 'application/json');
+};
+document.getElementById('btn-export-csv').onclick = ()=>{
+  const head = ['id','title','company','salary','city','experience','education','verdict','reasons','skills','note','url'];
+  const rows = jobs.map(j=>{
+    const a = j.annotation||{};
+    return [j.id,j.title,j.company,j.salary,j.city,j.experience,j.education,
+      a.verdict||'', (a.reasons||[]).join('|'), (a.skills||[]).join('|'), a.note||'', j.url]
+      .map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',');
+  });
+  download('boss_agent_annotations.csv', '\ufeff'+head.join(',')+'\n'+rows.join('\n'), 'text/csv');
+};
+document.getElementById('btn-clear').onclick = ()=>{
+  if(confirm('清空全部样本与标注？此操作不可撤销。')){ jobs=[]; save(); render(); }
+};
+
+/* ================= 示例数据 ================= */
+document.getElementById('btn-sample').onclick = ()=>{
+  addJobs([
+    {id:'sample_1',title:'AI Agent 开发工程师',company:'示例·某智能科技',salary:'15-25K·13薪',city:'上海',area:'浦东新区',experience:'1-3年',education:'本科',
+     jd:'岗位职责：\n1、负责企业知识库智能体开发，基于 LangChain 搭建 Agent 工作流；\n2、参与 RAG 检索增强与 Prompt 工程优化；\n3、使用 Python 完成模型服务化。\n任职要求：熟悉 LLM、RAG、LangChain，有 AI Agent 项目经验。'},
+    {id:'sample_2',title:'AI 产品经理',company:'示例·某互联网公司',salary:'18-20K',city:'杭州',area:'余杭区',experience:'3-5年',education:'本科',
+     jd:'负责 AI 产品需求分析，撰写 PRD，推进大模型应用落地。要求熟悉 Prompt 工程、RAG 方案，具备 SQL 与数据分析能力。'},
+    {id:'sample_3',title:'AI Agent 软件开发岗-无经验可培养',company:'示例·外包派遣',salary:'13-15K·17薪',city:'惠州',area:'惠城区',experience:'经验不限',education:'本科',
+     jd:'负责 AI Agent 软件开发，需接受大小周排班，配合客户现场驻场开发。'},
+    {id:'sample_4',title:'Python 后端开发',company:'示例·某科技',salary:'8-12K',city:'郑州',area:'金水区',experience:'1-3年',education:'大专',
+     jd:'负责后端接口开发，熟悉 Python、Django、MySQL，做六休一，周末值班。'}
+  ].map(o=>({...o, annotation:{verdict:null,reasons:[],skills:[],note:''}})));
+};
+
+/* ================= 启动 ================= */
+load();
+render();
+document.getElementById('btn-sample'); // noop
+</script>
+</body>
+</html>

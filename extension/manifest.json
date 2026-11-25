@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "BOSS Agent",
+  "version": "0.1.0",
+  "description": "仅运行在 BOSS 直聘上的本地求职 Agent：读取岗位、自动外呼、简历自动发送。数据全部保存在本地。",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "tabs",
+    "sidePanel",
+    "scripting",
+    "clipboardWrite",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "https://www.zhipin.com/*",
+    "https://*.zhipin.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "BOSS Agent — 打开侧边栏"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.zhipin.com/*",
+        "https://*.zhipin.com/*"
+      ],
+      "js": ["content/boss_job.js", "content/boss_chat.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

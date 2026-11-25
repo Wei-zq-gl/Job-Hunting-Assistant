@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOSS Agent</title>
+<link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">BA</span>
+    <div>
+      <h1>BOSS Agent</h1>
+      <p class="sub">本地求职助手 · 仅 BOSS 直聘</p>
+    </div>
+  </div>
+  <span id="conn-dot" class="dot off" title="后端连接状态"></span>
+</header>
+
+<section class="card">
+  <h2>后端连接</h2>
+  <div class="kv">
+    <span class="k">状态</span>
+    <span class="v" id="status-text">检测中…</span>
+  </div>
+  <div class="kv">
+    <span class="k">地址</span>
+    <span class="v mono" id="api-base">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">模型</span>
+    <span class="v mono" id="model">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">LLM Key</span>
+    <span class="v" id="llm">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">熔断</span>
+    <span class="v" id="circuit">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">数据库</span>
+    <span class="v mono ellipsis" id="db" title="">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">延迟</span>
+    <span class="v" id="latency">—</span>
+  </div>
+  <p class="err hidden" id="err-text"></p>
+</section>
+
+<section class="card">
+  <h2>当前标签页</h2>
+  <div class="kv">
+    <span class="k">站点</span>
+    <span class="v" id="tab-host">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">页面类型</span>
+    <span class="v" id="tab-kind">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">Content Script</span>
+    <span class="v" id="cs-status">—</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>岗位采集</h2>
+  <label class="chk">
+    <input type="checkbox" id="chk-deep" checked>
+    <span>深抓 JD（逐条打开详情页补全职位描述，较慢）</span>
+  </label>
+  <button id="btn-capture" class="primary block" disabled>采集当前页岗位</button>
+  <p class="status-line" id="capture-status">请先打开 BOSS 直聘搜索/推荐列表页</p>
+  <button id="btn-dump" class="mini block-mini" disabled>诊断：复制首条岗位卡片 HTML</button>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>岗位列表</h2>
+    <div class="minscore">
+      <span class="k">≥</span>
+      <input type="number" id="input-minscore" value="80" min="0" max="100">
+      <button id="btn-reload-jobs" class="mini">刷新</button>
+    </div>
+  </div>
+  <div class="filter-row">
+    <select id="sel-status" class="mini-select">
+      <option value="">全部状态</option>
+      <option value="candidate">达标候选</option>
+      <option value="pending_outreach">已入队</option>
+      <option value="sent">已发送</option>
+      <option value="displayed_only">仅展示</option>
+      <option value="dropped">已淘汰</option>
+    </select>
+    <select id="sel-sort" class="mini-select">
+      <option value="score">按匹配分</option>
+      <option value="new">按采集时间</option>
+      <option value="salary">按薪资</option>
+    </select>
+  </div>
+  <div id="job-list" class="job-list">
+    <p class="hint">暂无数据，先采集当前页岗位。</p>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>发送控制</h2>
+    <span id="poll-badge" class="badge-status">轮询：关</span>
+  </div>
+  <div class="kv">
+    <span class="k">今日首轮外呼</span>
+    <span class="v" id="quota-text">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">今日回复</span>
+    <span class="v" id="reply-count">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">下一条</span>
+    <span class="v ellipsis" id="next-item" title="">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">限速</span>
+    <span class="v" id="wait-text">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">熔断</span>
+    <span class="v" id="circuit2">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">面试待处理</span>
+    <span class="v" id="interview-text">—</span>
+  </div>
+  <label class="toggle-line">
+    <input type="checkbox" id="chk-autoreply" />
+    <span>自动应答 HR 回复（只聊岗位内容，离题即终止）</span>
+  </label>
+  <div class="actions-2">
+    <button id="btn-poll-toggle" class="primary">开始轮询</button>
+    <button id="btn-send-now">发送下一条</button>
+  </div>
+  <div class="actions-2">
+    <button id="btn-reset-circuit" class="ghost">重置熔断</button>
+    <button id="btn-probe-page" class="ghost">诊断发送页</button>
+  </div>
+  <div class="actions-2">
+    <button id="btn-probe-chat" class="ghost">诊断聊天页</button>
+    <button id="btn-dump-chat" class="ghost">导出聊天页HTML</button>
+  </div>
+  <div class="actions-2">
+    <button id="btn-clear-interview" class="ghost">清除面试提醒</button>
+  </div>
+  <p class="status-line" id="send-status">轮询关闭。开始后每 30 秒检查一次队列。</p>
+  <div id="send-log" class="send-log"><p class="hint">暂无发送记录。</p></div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>记录与报表</h2>
+    <button id="btn-reload-report" class="mini">刷新</button>
+  </div>
+  <div class="kv">
+    <span class="k">今日主动外呼次数</span>
+    <span class="v" id="rep-outreach">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">今日回复次数</span>
+    <span class="v" id="rep-reply">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">已主动联系公司</span>
+    <span class="v" id="rep-outbound">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">已沟通过公司</span>
+    <span class="v" id="rep-contacted">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">HR 主动来聊</span>
+    <span class="v" id="rep-inbound">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">面试邀约待跟进</span>
+    <span class="v" id="rep-interview">—</span>
+  </div>
+  <p class="hint">今日主动外呼=当天首轮次数；已主动联系/已沟通过=公司去重（累计），已沟通过含 HR 主动来聊。</p>
+  <h3 class="sub-h">已沟通过公司</h3>
+  <div id="company-list" class="mini-list"><p class="hint">暂无。</p></div>
+  <h3 class="sub-h">面试邀约</h3>
+  <div id="interview-list" class="mini-list"><p class="hint">暂无。</p></div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>设置</h2>
+    <button id="btn-reload-settings" class="mini">读取</button>
+  </div>
+  <div class="set-grid">
+    <label>每日外呼上限<input type="number" id="set-limit" min="0" max="50"></label>
+    <label>评分阈值<input type="number" id="set-minscore" min="0" max="100"></label>
+    <label>间隔最小(s)<input type="number" id="set-int-min" min="0"></label>
+    <label>间隔最大(s)<input type="number" id="set-int-max" min="0"></label>
+    <label>薪资下限(K)<input type="number" id="set-sal-min" min="0"></label>
+    <label>薪资上限(K)<input type="number" id="set-sal-max" min="0"></label>
+  </div>
+  <label class="set-full">目标城市（逗号分隔）<input type="text" id="set-cities"></label>
+  <button id="btn-save-settings" class="primary block">保存设置</button>
+  <p class="status-line" id="settings-status">—</p>
+</section>
+
+<div class="actions">
+  <button id="btn-refresh" class="ghost">重新检测连接</button>
+  <button id="btn-open" class="ghost">打开 BOSS 直聘</button>
+</div>
+
+<section class="card muted-card">
+  <h2>关于</h2>
+  <p class="hint mono" id="ver">v0.1.0 · MV3</p>
+</section>
+
+<script src="sidepanel.js"></script>
+</body>
+</html>
